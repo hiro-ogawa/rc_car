@@ -10,3 +10,8 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
 
+# environment
+```
+export ROS_IP=`hostname -I`
+export ROS_MASTER_URI=http://xxx.xxx.xxx.xxx:11311
+```
