@@ -1,0 +1,6 @@
+<launch>
+  <include file="$(find ds4_driver)/launch/ds4_driver.launch">
+    <arg name="use_standard_msgs" value="true" />
+  </include>
+  <node name="joy_ackmn" pkg="rc_car" type="joy_ackmn.py" output="screen" />
+</launch>
