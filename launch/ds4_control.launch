@@ -1,0 +1,4 @@
+<launch>
+  <include file="$(find ds4_driver)/launch/ds4_driver.launch" />
+  <node name="ds4_ackmn" pkg="rc_car" type="ds4_ackmn.py" output="screen" />
+</launch>
