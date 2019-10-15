@@ -1,0 +1,5 @@
+<launch>
+  <node name="joy_ackmn" pkg="rc_car" type="joy_ackmn.py" output="screen" />
+  <node name="joy" pkg="joy" type="joy_node" />
+  <node name="ackmn_to_rc_MG996R" pkg="rc_car" type="ackmn_to_rc_MG996R.py" output="screen" />
+</launch>
