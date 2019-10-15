@@ -5,7 +5,7 @@ from ackermann_msgs.msg import AckermannDrive
 
 def callback(data):
     msg = AckermannDrive()
-    msg.steering_angle = data.angular.z
+    msg.steering_angle = data.angular.z / 4.0
     msg.speed = data.linear.x
     # print(msg)
     pub.publish(msg)
