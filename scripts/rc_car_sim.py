@@ -4,21 +4,16 @@ import numpy as np
 import rospy
 
 from tf2_ros import TransformBroadcaster
-from geometry_msgs.msg import (
-    Pose2D,
-    Pose,
-    TransformStamped,
-)
+from geometry_msgs.msg import TransformStamped, Twist
 from ackermann_msgs.msg import AckermannDrive
 
 # Because of transformations
 from tf_conversions import transformations
 
 class RCSim(object):
-    def __init__(self, initial_pose=Pose2D(), wheel_base=0.2):
-        self.pose = initial_pose
-        self.pos = np.matrix([self.pose.x, self.pose.y, 1]).T
-        self.dir = self.pose.theta
+    def __init__(self, initial_pose=(0, 0, 0), wheel_base=0.2):
+        self.pos = np.matrix([float(initial_pose[0]), float(initial_pose[1]), 1.0]).T
+        self.dir = float(initial_pose[2])
 
         self.wheel_base = wheel_base
         self.speed = 0.0
@@ -39,14 +34,18 @@ class RCSim(object):
         dt = (t - self.t0).to_sec()
         self.t0 = t
 
-        dx = self.speed * dt
+        self.twist = Twist()
+        self.twist.linear.x = self.speed
+        self.twist.angular.z = self.speed * np.tan(self.steer) / self.wheel_base
+
+        dx = self.twist.linear.x * dt
         dy = 0.0
 
         trans = np.matrix([dx, dy, 1]).T
 
         hdtheta = 0
         if self.steer != 0.0:
-            hdtheta = dx / (self.wheel_base / np.tan(self.steer)) / 2.0
+            hdtheta = self.twist.angular.z * dt / 2.0
 
         half_rot = self.gen_rot(hdtheta)
         pose_rot = self.gen_rot(self.dir)
@@ -54,22 +53,17 @@ class RCSim(object):
         self.pos += pose_rot * half_rot * trans
         self.dir += hdtheta * 2.0
 
-        self.pose.x = self.pos[0][0]
-        self.pose.y = self.pos[1][0]
-        self.pose.theta = self.dir
-
     def publish_msgs(self):
         t = rospy.Time.now()
-        self.pub_pose2d.publish(self.pose)
 
         tf = TransformStamped()
         tf.header.stamp = t
         tf.header.frame_id = "world"
         tf.child_frame_id = "base_footprint"
-        tf.transform.translation.x = self.pose.x
-        tf.transform.translation.y = self.pose.y
+        tf.transform.translation.x = self.pos[0][0]
+        tf.transform.translation.y = self.pos[1][0]
         tf.transform.translation.z = 0.0
-        q = transformations.quaternion_from_euler(0, 0, self.pose.theta)
+        q = transformations.quaternion_from_euler(0, 0, self.dir)
         tf.transform.rotation.x = q[0]
         tf.transform.rotation.y = q[1]
         tf.transform.rotation.z = q[2]
@@ -88,39 +82,21 @@ class RCSim(object):
         tf.transform.rotation.w = q[3]
         self.br.sendTransform(tf)
 
+        self.pub_twist.publish(self.twist)
 
     def run(self):
         rospy.init_node('ackmn_simulator', anonymous=True)
         rospy.Subscriber("/ackmn_drive", AckermannDrive, self.ackmn_callback)
-        self.pub_pose2d = rospy.Publisher("/pose2d", Pose2D, queue_size=1)
-        self.pub_pose = rospy.Publisher("/pose", Pose, queue_size=1)
+        self.pub_twist = rospy.Publisher("/twist_sim", Twist, queue_size=1)
         self.br = TransformBroadcaster()
 
-        r = rospy.Rate(10)
+        r = rospy.Rate(50)
         self.t0 = rospy.get_rostime()
         while not rospy.is_shutdown():
             self.sim()
             self.publish_msgs()
             r.sleep()
 
-
-def handle_turtle_pose(msg, turtlename):
-    br = TransformBroadcaster()
-    t = TransformStamped()
-
-    t.header.stamp = rospy.Time.now()
-    t.header.frame_id = "world"
-    t.child_frame_id = turtlename
-    t.transform.translation.x = msg.x
-    t.transform.translation.y = msg.y
-    t.transform.translation.z = 0.0
-    q = transformations.quaternion_from_euler(0, 0, msg.theta)
-    t.transform.rotation.x = q[0]
-    t.transform.rotation.y = q[1]
-    t.transform.rotation.z = q[2]
-    t.transform.rotation.w = q[3]
-
-    br.sendTransform(t)
 
 if __name__ == '__main__':
     sim = RCSim()
