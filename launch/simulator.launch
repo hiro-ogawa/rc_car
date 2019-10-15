@@ -1,0 +1,8 @@
+<launch>
+  <include file="$(find ds4_driver)/launch/ds4_driver.launch" />
+  <node name="ds4_ackmn" pkg="rc_car" type="ds4_ackmn.py" output="screen" />
+  <node name="rc_car_sim" pkg="rc_car" type="rc_car_sim.py" output="screen" />
+  <node name="dummy_gps" pkg="rc_car" type="dummy_gps.py" output="screen" />
+  <node name="pose_estimator" pkg="rc_car" type="pose_estimator.py" output="screen" />
+  <node name="rviz" pkg="rviz" type="rviz" args="$(find rc_car)/rviz/sim.rviz" output="screen" />
+</launch>
