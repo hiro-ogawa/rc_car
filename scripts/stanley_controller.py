@@ -14,6 +14,14 @@ import numpy as np
 
 import rospy
 from nav_msgs.msg import Path
+from geometry_msgs.msg import TransformStamped
+from ackermann_msgs.msg import AckermannDrive
+from tf2_ros import (
+    Buffer,
+    TransformListener,
+    TransformBroadcaster,
+    LookupException, ConnectivityException, ExtrapolationException,
+)
 # Because of transformations
 from tf_conversions import transformations
 
@@ -21,7 +29,7 @@ k = 0.5  # control gain
 Kp = 1.0  # speed propotional gain
 dt = 0.1  # [s] time difference
 L = 2.9  # [m] Wheel base of vehicle
-max_steer = np.radians(30.0)  # [rad] max steering angle
+max_steer = np.radians(3.0)  # [rad] max steering angle
 
 class State(object):
     """
@@ -194,43 +202,75 @@ def path_callback(msg):
     poses = _poses
 
 if __name__ == '__main__':
-    rospy.init_node('pub_test_points', anonymous=True)
+    rospy.init_node('stanley_controller', anonymous=True)
     rospy.Subscriber("/path", Path, path_callback)
-
+    pub_ackmn = rospy.Publisher('/ackmn_drive', AckermannDrive, queue_size=1)
+    tfBuffer = Buffer()
+    listener = TransformListener(tfBuffer)
+    br = TransformBroadcaster()
     target_speed = 30.0 / 3.6  # [m/s]
 
     control = False
-    r = rospy.Rate(1.0 / dt)
+    vx = 0.0
+
+    rate = rospy.Rate(1.0 / dt)
     while not rospy.is_shutdown():
         if not control:
             if poses:
                 print(len(poses))
                 control = True
+                vx = 0.0
                 cx, cy, cyaw = zip(*poses)
 
                 # Initial state
-                state = State(x=-0.0, y=5.0, yaw=np.radians(20.0), v=0.0)
+                try:
+                    trans = tfBuffer.lookup_transform("world", 'base_footprint', rospy.Time(0))
+                except (LookupException, ConnectivityException, ExtrapolationException):
+                    rate.sleep()
+                    continue
+
+                q = trans.transform.rotation
+                state = State(
+                    x=trans.transform.translation.x,
+                    y=trans.transform.translation.y,
+                    yaw=transformations.euler_from_quaternion((q.x, q.y, q.z, q.w))[2],
+                    v=vx)
 
                 last_idx = len(poses) - 1
                 time = 0.0
-                x = [state.x]
-                y = [state.y]
-                yaw = [state.yaw]
-                v = [state.v]
-                t = [0.0]
                 target_idx, _ = calc_target_index(state, cx, cy)
             else:
+                rate.sleep()
                 continue
 
-        ai = pid_control(target_speed, state.v)
+        try:
+            trans = tfBuffer.lookup_transform("world", 'base_footprint', rospy.Time(0))
+        except (LookupException, ConnectivityException, ExtrapolationException):
+            rate.sleep()
+            continue
+        q = trans.transform.rotation
+        state = State(
+            x=trans.transform.translation.x,
+            y=trans.transform.translation.y,
+            yaw=transformations.euler_from_quaternion((q.x, q.y, q.z, q.w))[2],
+            v=vx)
+
+        vx += pid_control(target_speed, vx) * dt
         di, target_idx = stanley_control(state, cx, cy, cyaw, target_idx)
-        state.update(ai, di)
 
-        print(state.x, state.y, state.yaw, state.v)
-        x.append(state.x)
-        y.append(state.y)
-        yaw.append(state.yaw)
-        v.append(state.v)
-        t.append(time)
+        msg_ackmn = AckermannDrive()
+        msg_ackmn.steering_angle = np.clip(di, -max_steer, max_steer)
+        msg_ackmn.speed = vx
+        pub_ackmn.publish(msg_ackmn)
 
-        r.sleep()
+        if last_idx <= target_idx:
+            control = False
+            vx = 0.0
+            poses = []
+
+            msg_ackmn = AckermannDrive()
+            msg_ackmn.steering_angle = 0
+            msg_ackmn.speed = 0
+            pub_ackmn.publish(msg_ackmn)
+
+        rate.sleep()

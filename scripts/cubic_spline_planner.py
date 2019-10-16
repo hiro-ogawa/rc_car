@@ -233,13 +233,13 @@ def poses_callback(msg):
         pose.pose.orientation.z = q[2]
         pose.pose.orientation.w = q[3]
         path.poses.append(pose)
-    
+
     pub.publish(path)
 
 if __name__ == '__main__':
     global pub
 
-    rospy.init_node('pub_test_points', anonymous=True)
+    rospy.init_node('cubic_spline_planner', anonymous=True)
     rospy.Subscriber("/path_points", PoseArray, poses_callback)
     pub = rospy.Publisher("/path", Path, queue_size=1)
 
