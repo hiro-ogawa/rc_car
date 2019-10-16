@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 
 Path tracking simulation with Stanley steering control and PID speed control.
@@ -11,14 +12,16 @@ Ref:
 """
 import numpy as np
 
+import rospy
+from nav_msgs.msg import Path
+# Because of transformations
+from tf_conversions import transformations
+
 k = 0.5  # control gain
 Kp = 1.0  # speed propotional gain
 dt = 0.1  # [s] time difference
 L = 2.9  # [m] Wheel base of vehicle
 max_steer = np.radians(30.0)  # [rad] max steering angle
-
-show_animation = True
-
 
 class State(object):
     """
@@ -178,6 +181,56 @@ def main():
     # Test
     assert last_idx >= target_idx, "Cannot reach goal"
 
+poses = []
+
+def path_callback(msg):
+    _poses = []
+    for p in msg.poses:
+        q = p.pose.orientation
+        yaw = transformations.euler_from_quaternion((q.x, q.y, q.z, q.w))[2]
+        _poses.append((p.pose.position.x, p.pose.position.y, yaw))
+
+    global poses
+    poses = _poses
 
 if __name__ == '__main__':
-    main()
+    rospy.init_node('pub_test_points', anonymous=True)
+    rospy.Subscriber("/path", Path, path_callback)
+
+    target_speed = 30.0 / 3.6  # [m/s]
+
+    control = False
+    r = rospy.Rate(1.0 / dt)
+    while not rospy.is_shutdown():
+        if not control:
+            if poses:
+                print(len(poses))
+                control = True
+                cx, cy, cyaw = zip(*poses)
+
+                # Initial state
+                state = State(x=-0.0, y=5.0, yaw=np.radians(20.0), v=0.0)
+
+                last_idx = len(poses) - 1
+                time = 0.0
+                x = [state.x]
+                y = [state.y]
+                yaw = [state.yaw]
+                v = [state.v]
+                t = [0.0]
+                target_idx, _ = calc_target_index(state, cx, cy)
+            else:
+                continue
+
+        ai = pid_control(target_speed, state.v)
+        di, target_idx = stanley_control(state, cx, cy, cyaw, target_idx)
+        state.update(ai, di)
+
+        print(state.x, state.y, state.yaw, state.v)
+        x.append(state.x)
+        y.append(state.y)
+        yaw.append(state.yaw)
+        v.append(state.v)
+        t.append(time)
+
+        r.sleep()
