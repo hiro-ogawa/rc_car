@@ -14,15 +14,15 @@ GPIO.setup(PIN_STEER, GPIO.OUT)
 servo_drive = GPIO.PWM(PIN_DRIVE, 50)
 servo_steer = GPIO.PWM(PIN_STEER, 50)
 
-servo_drive.start(7.25)
+servo_drive.start(7.0)
 servo_steer.start(7.25)
 
 def callback(data):
     drive = data.speed
     steer = data.steering_angle
 
-    servo_drive.ChangeDutyCycle(drive + 7.25)
-    servo_steer.ChangeDutyCycle(steer + 7.25)
+    servo_drive.ChangeDutyCycle(drive*2.0 + 7.0)
+    servo_steer.ChangeDutyCycle(steer*3.0 + 7.25)
 
 def listener():
     rospy.init_node('rc_driver', anonymous=True)
