@@ -1,0 +1,6 @@
+<launch>
+  <param name="/use_sim_time" value="true" />
+  <node name="rosbag" pkg="rosbag" type="play" args="$(find rc_car)/bag/testrun2-2019-10-17-05-16-28.bag --clock" output="screen" />
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find rc_car)/rviz/default.rviz" output="screen" />
+  <node name="pub_marker_array" pkg="rc_car" type="pub_marker_array.py" output="screen" />
+</launch>
