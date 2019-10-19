@@ -1,0 +1,6 @@
+<launch>
+  <include file="$(find ds4_driver)/launch/ds4_driver.launch" />
+  <node name="cubic_spline_planner" pkg="rc_car" type="cubic_spline_planner.py" output="screen" />
+  <node name="path_points_publisher" pkg="rc_car" type="path_points_publisher.py" output="screen" />
+  <node name="rviz" pkg="rviz" type="rviz" args="$(find rc_car)/rviz/track.rviz" output="screen" />
+</launch>
