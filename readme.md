@@ -15,3 +15,20 @@ sudo udevadm trigger
 export ROS_IP=`hostname -I`
 export ROS_MASTER_URI=http://xxx.xxx.xxx.xxx:11311
 ```
+
+# packages
+```
+sudo apt install -y \
+ros-melodic-ackermann-drive \
+ros-melodic-nmea-navsat-driver \
+python-pyproj \
+
+```
+```
+sudo pip install Adafruit-BNO055
+```
+
+# logging
+```
+rosbag record /ackmn_drive /fix /nmea_sentence /tf /tf_static
+```
