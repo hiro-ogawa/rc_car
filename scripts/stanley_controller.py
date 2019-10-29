@@ -28,8 +28,8 @@ from tf_conversions import transformations
 k = 0.5  # control gain
 Kp = 1.0  # speed propotional gain
 dt = 0.1  # [s] time difference
-L = 2.9  # [m] Wheel base of vehicle
-max_steer = np.radians(3.0)  # [rad] max steering angle
+L = 0.24  # [m] Wheel base of vehicle
+max_steer = np.radians(10.0)  # [rad] max steering angle
 
 class State(object):
     """
@@ -129,7 +129,7 @@ def calc_target_index(state, cx, cy):
     :param cy: [float]
     :return: (int, float)
     """
-   # Calc front axle position
+    # Calc front axle position
     fx = state.x + L * np.cos(state.yaw)
     fy = state.y + L * np.sin(state.yaw)
 
@@ -147,47 +147,6 @@ def calc_target_index(state, cx, cy):
 
     return target_idx, error_front_axle
 
-
-def main():
-    """Plot an example of Stanley steering control on a cubic spline."""
-    #  target course
-    ax = [0.0, 100.0, 100.0, 50.0, 60.0]
-    ay = [0.0, 0.0, -30.0, -20.0, 0.0]
-
-    cx, cy, cyaw, ck, s = cubic_spline_planner.calc_spline_course(
-        ax, ay, ds=0.1)
-
-    target_speed = 30.0 / 3.6  # [m/s]
-
-    max_simulation_time = 100.0
-
-    # Initial state
-    state = State(x=-0.0, y=5.0, yaw=np.radians(20.0), v=0.0)
-
-    last_idx = len(cx) - 1
-    time = 0.0
-    x = [state.x]
-    y = [state.y]
-    yaw = [state.yaw]
-    v = [state.v]
-    t = [0.0]
-    target_idx, _ = calc_target_index(state, cx, cy)
-
-    while max_simulation_time >= time and last_idx > target_idx:
-        ai = pid_control(target_speed, state.v)
-        di, target_idx = stanley_control(state, cx, cy, cyaw, target_idx)
-        state.update(ai, di)
-
-        time += dt
-
-        x.append(state.x)
-        y.append(state.y)
-        yaw.append(state.yaw)
-        v.append(state.v)
-        t.append(time)
-
-    # Test
-    assert last_idx >= target_idx, "Cannot reach goal"
 
 poses = []
 
@@ -208,7 +167,7 @@ if __name__ == '__main__':
     tfBuffer = Buffer()
     listener = TransformListener(tfBuffer)
     br = TransformBroadcaster()
-    target_speed = 30.0 / 3.6  # [m/s]
+    target_speed = 2.8  # [m/s]  10km/h 
 
     control = False
     vx = 0.0
@@ -216,7 +175,9 @@ if __name__ == '__main__':
     rate = rospy.Rate(1.0 / dt)
     while not rospy.is_shutdown():
         if not control:
+            # initialization
             if poses:
+                # take control and setup a path if path points are provided
                 print(len(poses))
                 control = True
                 vx = 0.0
@@ -224,7 +185,7 @@ if __name__ == '__main__':
 
                 # Initial state
                 try:
-                    trans = tfBuffer.lookup_transform("world", 'base_footprint', rospy.Time(0))
+                    trans = tfBuffer.lookup_transform("world", 'estimated_footprint', rospy.Time(0))
                 except (LookupException, ConnectivityException, ExtrapolationException):
                     rate.sleep()
                     continue
@@ -238,13 +199,15 @@ if __name__ == '__main__':
 
                 last_idx = len(poses) - 1
                 time = 0.0
+                # decide an initial path point to go
                 target_idx, _ = calc_target_index(state, cx, cy)
             else:
+                # wait until path points are provided
                 rate.sleep()
                 continue
 
         try:
-            trans = tfBuffer.lookup_transform("world", 'base_footprint', rospy.Time(0))
+            trans = tfBuffer.lookup_transform("world", 'estimated_footprint', rospy.Time(0))
         except (LookupException, ConnectivityException, ExtrapolationException):
             rate.sleep()
             continue
@@ -255,17 +218,21 @@ if __name__ == '__main__':
             yaw=transformations.euler_from_quaternion((q.x, q.y, q.z, q.w))[2],
             v=vx)
 
+        # determine vx, di: speed and steering angle to assign
         vx += pid_control(target_speed, vx) * dt
         di, target_idx = stanley_control(state, cx, cy, cyaw, target_idx)
 
+        # publish control message
         msg_ackmn = AckermannDrive()
         msg_ackmn.steering_angle = np.clip(di, -max_steer, max_steer)
         msg_ackmn.speed = vx
         pub_ackmn.publish(msg_ackmn)
 
+        # once arrived to the last path point, stop controlling
         if last_idx <= target_idx:
             control = False
             vx = 0.0
+            # remove all path points
             poses = []
 
             msg_ackmn = AckermannDrive()

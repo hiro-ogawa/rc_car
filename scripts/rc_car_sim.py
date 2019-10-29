@@ -11,7 +11,7 @@ from ackermann_msgs.msg import AckermannDrive
 from tf_conversions import transformations
 
 class RCSim(object):
-    def __init__(self, initial_pose=(0, 0, 0), wheel_base=0.2):
+    def __init__(self, initial_pose=(0, 0, 0), wheel_base=0.24):
         self.pos = np.matrix([float(initial_pose[0]), float(initial_pose[1]), 1.0]).T
         self.dir = float(initial_pose[2])
 

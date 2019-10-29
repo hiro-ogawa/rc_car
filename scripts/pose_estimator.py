@@ -17,13 +17,19 @@ from tf2_msgs.msg import TFMessage
 # Because of transformations
 from tf_conversions import transformations
 
+SIMULATED = True
+
 class PoseEstimator(object):
     last_pos = None
     pos = None
     dir = 0.0
+    last_dir = 0.0
 
     def twist_callback(self, msg):
         self.wz = msg.angular.z
+
+    def imu_callback(self, msg):
+        self.dir = transformations.euler_from_quaternion((msg.x, msg.y, msg.z, msg.w))[2]
 
     def tf_callback(self, msg):
         for tf in msg.transforms:
@@ -40,8 +46,10 @@ class PoseEstimator(object):
             self.vx = l / dt
 
             self.pos = np.matrix([tf.transform.translation.x, tf.transform.translation.y, 1.0]).T
-            q = tf.transform.rotation
-            self.dir = transformations.euler_from_quaternion((q.x, q.y, q.z, q.w))[2]
+             # dir is obtained from imu callback on actual RCcar
+            if SIMULATED:
+                q = tf.transform.rotation
+                self.dir = transformations.euler_from_quaternion((q.x, q.y, q.z, q.w))[2]
 
             self.last_pos = tf
 
@@ -51,14 +59,17 @@ class PoseEstimator(object):
         rot = np.matrix([[c, -s, 0], [s, c, 0], [0, 0, 1]])
         return rot
 
-    def sim(self):
+    def estimate_tf(self):
         t = rospy.get_rostime()
         dt = (t - self.t0).to_sec()
         self.t0 = t
 
         dx = self.vx * dt
         dy = 0.0
-        dtheta = self.wz * dt
+        if SIMULATED:
+            dtheta = self.wz * dt
+        else:
+            dtheta = self.dir - self.last_dir
 
         trans = np.matrix([dx, dy, 1]).T
 
@@ -66,12 +77,20 @@ class PoseEstimator(object):
         pose_rot = self.gen_rot(self.dir)
 
         self.pos += pose_rot * half_rot * trans
-        self.dir += dtheta
+        if SIMULATED:
+            self.dir += dtheta
+        else:
+            self.last_dir = self.dir
 
     def run(self):
         rospy.init_node('pose_estimator')
         rospy.Subscriber("/tf", TFMessage, self.tf_callback)
+
+        # for simulator
         rospy.Subscriber("/twist_sim", Twist, self.twist_callback)
+
+        # for actual RCcar
+        rospy.Subscriber("/imu_quat", Twist, self.imu_callback)
 
         br = TransformBroadcaster()
 
@@ -81,7 +100,7 @@ class PoseEstimator(object):
             rate.sleep()
 
             if self.pos is not None:
-                self.sim()
+                self.estimate_tf()
                 tf = TransformStamped()
                 tf.header.stamp = rospy.Time.now()
                 tf.header.frame_id = "world"

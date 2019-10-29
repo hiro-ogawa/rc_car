@@ -6,8 +6,11 @@ from geometry_msgs.msg import PoseArray, Pose, Point
 from interactive_markers.interactive_marker_server import *
 from visualization_msgs.msg import *
 
-ax = [0.0, 10.0, 10.0, 5.0, 6.0]
-ay = [0.0, 0.0, -3.0, -2.0, 0.0]
+# ax = [0.0, 10.0, 10.0, 5.0, 6.0]
+# ay = [0.0, 0.0, -3.0, -2.0, 0.0]
+ax = [0.0, 1.0, 2.0, 3.0, 6.0,  3.0, -2.0, -5.0, -2.0, 0.0]
+ay = [3.0, 1.0, 2.0, 3.0, 0.0, -3.0, -3.0,  0.0,  3.0, 3.0]
+
 points = zip(ax, ay)
 
 def processFeedback( feedback ):
