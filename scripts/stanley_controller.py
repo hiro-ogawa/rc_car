@@ -28,8 +28,8 @@ from tf_conversions import transformations
 k = 0.5  # control gain
 Kp = 1.0  # speed propotional gain
 dt = 0.1  # [s] time difference
-L = 2.9  # [m] Wheel base of vehicle
-max_steer = np.radians(3.0)  # [rad] max steering angle
+L = 0.2  # [m] Wheel base of vehicle
+max_steer = np.radians(10.0)  # [rad] max steering angle
 
 class State(object):
     """
@@ -144,6 +144,7 @@ def calc_target_index(state, cx, cy):
     front_axle_vec = [-np.cos(state.yaw + np.pi / 2),
                       - np.sin(state.yaw + np.pi / 2)]
     error_front_axle = np.dot([dx[target_idx], dy[target_idx]], front_axle_vec)
+    print("target idx", target_idx)
 
     return target_idx, error_front_axle
 
@@ -194,6 +195,7 @@ poses = []
 def path_callback(msg):
     _poses = []
     for p in msg.poses:
+        print(p)
         q = p.pose.orientation
         yaw = transformations.euler_from_quaternion((q.x, q.y, q.z, q.w))[2]
         _poses.append((p.pose.position.x, p.pose.position.y, yaw))
@@ -208,7 +210,7 @@ if __name__ == '__main__':
     tfBuffer = Buffer()
     listener = TransformListener(tfBuffer)
     br = TransformBroadcaster()
-    target_speed = 30.0 / 3.6  # [m/s]
+    target_speed = 0.1  # [m/s]
 
     control = False
     vx = 0.0
@@ -224,7 +226,8 @@ if __name__ == '__main__':
 
                 # Initial state
                 try:
-                    trans = tfBuffer.lookup_transform("world", 'base_footprint', rospy.Time(0))
+                    trans = tfBuffer.lookup_transform("world", 'estimated_footprint', rospy.Time(0))
+                    print("pass try")
                 except (LookupException, ConnectivityException, ExtrapolationException):
                     rate.sleep()
                     continue
@@ -244,7 +247,7 @@ if __name__ == '__main__':
                 continue
 
         try:
-            trans = tfBuffer.lookup_transform("world", 'base_footprint', rospy.Time(0))
+            trans = tfBuffer.lookup_transform("world", 'estimated_footprint', rospy.Time(0))
         except (LookupException, ConnectivityException, ExtrapolationException):
             rate.sleep()
             continue
@@ -263,14 +266,14 @@ if __name__ == '__main__':
         msg_ackmn.speed = vx
         pub_ackmn.publish(msg_ackmn)
 
-        if last_idx <= target_idx:
-            control = False
-            vx = 0.0
-            poses = []
+        # if last_idx <= target_idx:
+        #     control = False
+        #     vx = 0.0
+        #     poses = []
 
-            msg_ackmn = AckermannDrive()
-            msg_ackmn.steering_angle = 0
-            msg_ackmn.speed = 0
-            pub_ackmn.publish(msg_ackmn)
+        #     msg_ackmn = AckermannDrive()
+        #     msg_ackmn.steering_angle = 0
+        #     msg_ackmn.speed = 0
+        #     pub_ackmn.publish(msg_ackmn)
 
         rate.sleep()
