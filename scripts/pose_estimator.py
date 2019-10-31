@@ -3,7 +3,6 @@
 
 """
 GPS 情報を受信して 速度を計算
-twist 出力から旋回量を計算 本番ではジャイロから出るはず
 IMUから絶対角がそもそも出るんじゃないかな
 """
 
@@ -12,21 +11,17 @@ import numpy as np
 import rospy
 
 from tf2_ros import TransformBroadcaster
-from geometry_msgs.msg import TransformStamped, Twist
+from geometry_msgs.msg import Quaternion, TransformStamped, Twist
 from tf2_msgs.msg import TFMessage
 # Because of transformations
 from tf_conversions import transformations
 
-SIMULATED = True
 
 class PoseEstimator(object):
     last_pos = None
     pos = None
     dir = 0.0
     last_dir = 0.0
-
-    def twist_callback(self, msg):
-        self.wz = msg.angular.z
 
     def imu_callback(self, msg):
         self.dir = transformations.euler_from_quaternion((msg.x, msg.y, msg.z, msg.w))[2]
@@ -46,10 +41,10 @@ class PoseEstimator(object):
             self.vx = l / dt
 
             self.pos = np.matrix([tf.transform.translation.x, tf.transform.translation.y, 1.0]).T
-             # dir is obtained from imu callback on actual RCcar
-            if SIMULATED:
-                q = tf.transform.rotation
-                self.dir = transformations.euler_from_quaternion((q.x, q.y, q.z, q.w))[2]
+            # dir is obtained from imu callback on actual RCcar
+            #if SIMULATED:
+            #    q = tf.transform.rotation
+            #    self.dir = transformations.euler_from_quaternion((q.x, q.y, q.z, q.w))[2]
 
             self.last_pos = tf
 
@@ -60,16 +55,14 @@ class PoseEstimator(object):
         return rot
 
     def estimate_tf(self):
+        print('last_dir', self.last_dir, 'curr_dir', self.dir)
         t = rospy.get_rostime()
         dt = (t - self.t0).to_sec()
         self.t0 = t
 
         dx = self.vx * dt
         dy = 0.0
-        if SIMULATED:
-            dtheta = self.wz * dt
-        else:
-            dtheta = self.dir - self.last_dir
+        dtheta = self.dir - self.last_dir
 
         trans = np.matrix([dx, dy, 1]).T
 
@@ -77,20 +70,12 @@ class PoseEstimator(object):
         pose_rot = self.gen_rot(self.dir)
 
         self.pos += pose_rot * half_rot * trans
-        if SIMULATED:
-            self.dir += dtheta
-        else:
-            self.last_dir = self.dir
+        self.last_dir = self.dir
 
     def run(self):
         rospy.init_node('pose_estimator')
         rospy.Subscriber("/tf", TFMessage, self.tf_callback)
-
-        # for simulator
-        rospy.Subscriber("/twist_sim", Twist, self.twist_callback)
-
-        # for actual RCcar
-        rospy.Subscriber("/imu_quat", Twist, self.imu_callback)
+        rospy.Subscriber("/imu_quat", Quaternion, self.imu_callback)
 
         br = TransformBroadcaster()
 
