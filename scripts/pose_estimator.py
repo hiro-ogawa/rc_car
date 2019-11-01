@@ -23,6 +23,7 @@ class PoseEstimator(object):
     pos = None
     dir = 0.0
     last_dir = 0.0
+    wz = 0.0
 
     def imu_callback(self, msg):
         self.dir = transformations.euler_from_quaternion((msg.x, msg.y, msg.z, msg.w))[2]
@@ -68,6 +69,7 @@ class PoseEstimator(object):
 
         dx = self.vx * dt
         dy = 0.0
+
         if IMU:
             dtheta = self.dir - self.last_dir
         else:
@@ -77,9 +79,9 @@ class PoseEstimator(object):
 
         half_rot = self.gen_rot(dtheta / 2.0)
         pose_rot = self.gen_rot(self.dir)
-
         self.pos += pose_rot * half_rot * trans
-        self.dir += dtheta
+        if not IMU:
+            self.dir += dtheta
         self.last_dir = self.dir
 
     def run(self):
