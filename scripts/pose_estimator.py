@@ -3,8 +3,7 @@
 
 """
 GPS 情報を受信して 速度を計算
-twist 出力から旋回量を計算 本番ではジャイロから出るはず
-IMUから絶対角がそもそも出るんじゃないかな
+twist 出力から旋回量を計算 (simulation only)
 """
 
 import numpy as np
@@ -12,15 +11,20 @@ import numpy as np
 import rospy
 
 from tf2_ros import TransformBroadcaster
-from geometry_msgs.msg import TransformStamped, Twist
+from geometry_msgs.msg import Quaternion, TransformStamped, Twist
 from tf2_msgs.msg import TFMessage
 # Because of transformations
 from tf_conversions import transformations
+
+IMU = False
 
 class PoseEstimator(object):
     last_pos = None
     pos = None
     dir = 0.0
+
+    def imu_callback(self, msg):
+        self.dir = transformations.euler_from_quaternion((msg.x, msg.y, msg.z, msg.w))[2]
 
     def twist_callback(self, msg):
         self.wz = msg.angular.z
@@ -34,14 +38,19 @@ class PoseEstimator(object):
                 return
 
             dt = (tf.header.stamp - self.last_pos.header.stamp).to_sec()
+            if dt == 0.0:  # skip duplicated data
+                continue
+
             p0 = np.array([self.last_pos.transform.translation.x, self.last_pos.transform.translation.y])
             p1 = np.array([tf.transform.translation.x, tf.transform.translation.y])
             l = np.linalg.norm(p1 - p0)
             self.vx = l / dt
 
             self.pos = np.matrix([tf.transform.translation.x, tf.transform.translation.y, 1.0]).T
-            q = tf.transform.rotation
-            self.dir = transformations.euler_from_quaternion((q.x, q.y, q.z, q.w))[2]
+            if not IMU:
+                q = tf.transform.rotation
+                self.dir = transformations.euler_from_quaternion((q.x, q.y, q.z, q.w))[2]
+            # if IMU is available, no need to update self.dir here
 
             self.last_pos = tf
 
@@ -51,7 +60,7 @@ class PoseEstimator(object):
         rot = np.matrix([[c, -s, 0], [s, c, 0], [0, 0, 1]])
         return rot
 
-    def sim(self):
+    def estimate_pose(self):
         t = rospy.get_rostime()
         dt = (t - self.t0).to_sec()
         self.t0 = t
@@ -72,6 +81,7 @@ class PoseEstimator(object):
         rospy.init_node('pose_estimator')
         rospy.Subscriber("/tf", TFMessage, self.tf_callback)
         rospy.Subscriber("/twist_sim", Twist, self.twist_callback)
+        rospy.Subscriber("/imu_quat", Quaternion, self.imu_callback)
 
         br = TransformBroadcaster()
 
@@ -81,7 +91,7 @@ class PoseEstimator(object):
             rate.sleep()
 
             if self.pos is not None:
-                self.sim()
+                #self.estimate_pose()
                 tf = TransformStamped()
                 tf.header.stamp = rospy.Time.now()
                 tf.header.frame_id = "world"
