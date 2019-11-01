@@ -1,0 +1,37 @@
+<launch>
+
+  <!-- GPS -->
+  <arg name="port" default="/dev/serial0" />
+  <arg name="baud" default="9600" />
+  <arg name="frame_id" default="gps" />
+  <arg name="use_GNSS_time" default="False" />
+  <arg name="time_ref_source" default="gps" />
+  <arg name="useRMC" default="False" />
+
+  <node name="nmea_topic_serial_reader_node" pkg="nmea_navsat_driver" type="nmea_topic_serial_reader" output="screen">
+    <param name="port" value="$(arg port)"/>
+    <param name="baud" value="$(arg baud)" />
+    <param name="frame_id" value="$(arg frame_id)" />
+  </node>
+
+  <node name="nmea_topic_driver_node" pkg="nmea_navsat_driver" type="nmea_topic_driver" output="screen">
+    <param name="use_GNSS_time" value="$(arg use_GNSS_time)" />
+    <param name="time_ref_source" value="$(arg time_ref_source)" />
+    <param name="useRMC" value="$(arg useRMC)" />
+  </node>
+
+  <node name="nav_tf_broadcaster" pkg="rc_car" type="nav_tf_broadcaster.py" output="screen" />
+  <!-- End GPS -->
+
+  <!-- IMU -->
+  <node name="bno055" pkg="rc_car" type="bno055.py" output="screen" />
+
+  <!-- Position estimation -->
+  <node name="pose_estimator" pkg="rc_car" type="pose_estimator.py" output="screen" />
+
+  <!-- RcCar control -->
+  <node name="ackmn_to_rc_MG996R_PCA9685" pkg="rc_car" type="ackmn_to_rc_MG996R_PCA9685.py" output="screen" />
+  <node name="stanley_controller" pkg="rc_car" type="stanley_controller.py" output="screen" />
+
+  <!-- <node name="rviz" pkg="rviz" type="rviz" args="$(find rc_car)/rviz/sim.rviz" output="screen" /> -->
+</launch>
