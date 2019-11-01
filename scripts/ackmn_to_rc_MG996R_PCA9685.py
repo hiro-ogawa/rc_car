@@ -21,13 +21,22 @@ DRIVE_NEUTRAL = DRIVE_RANGE // 2 + DRIVE_MIN
 pwm = Adafruit_PCA9685.PCA9685()  # default i2c address: 0x40
 pwm.set_pwm_freq(60)  # Hz
 
+def to_pwm(drive, steer):
+    print('drive=', drive, 'steer=', steer)
+
+    if drive > 0.1:
+        drive = 0.1
+
+    steer_pwm = STEER_NEUTRAL - int(steer * STEER_RANGE)//2
+    drive_pwm = DRIVE_NEUTRAL + int(drive * DRIVE_RANGE)//2
+ 
+    return drive_pwm, steer_pwm
 
 def callback(data):
-    drive = data.speed
-    steer = data.steering_angle
+    drive_pwm, steer_pwm = to_pwm(data.speed, data.steering_angle)
 
-    pwm.set_pwm(CHANNEL_STEER, 0, STEER_NEUTRAL - int(steer * STEER_RANGE)//2)
-    pwm.set_pwm(CHANNEL_DRIVE, 0, DRIVE_NEUTRAL + int(drive * DRIVE_RANGE)//2)
+    pwm.set_pwm(CHANNEL_DRIVE, 0, drive_pwm)
+    pwm.set_pwm(CHANNEL_STEER, 0, steer_pwm)
 
 def listener():
     rospy.init_node('rc_driver', anonymous=True)
@@ -35,5 +44,7 @@ def listener():
     rospy.spin()
 
 if __name__ == '__main__':
-    listener()
-
+    try:
+        listener()
+    finally:
+        pwm.set_pwm(CHANNEL_DRIVE, 0, DRIVE_NEUTRAL)
