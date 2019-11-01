@@ -22,6 +22,7 @@ class PoseEstimator(object):
     last_pos = None
     pos = None
     dir = 0.0
+    last_dir = 0.0
 
     def imu_callback(self, msg):
         self.dir = transformations.euler_from_quaternion((msg.x, msg.y, msg.z, msg.w))[2]
@@ -67,7 +68,10 @@ class PoseEstimator(object):
 
         dx = self.vx * dt
         dy = 0.0
-        dtheta = self.wz * dt
+        if IMU:
+            dtheta = self.dir - self.last_dir
+        else:
+            dtheta = self.wz * dt
 
         trans = np.matrix([dx, dy, 1]).T
 
@@ -76,6 +80,7 @@ class PoseEstimator(object):
 
         self.pos += pose_rot * half_rot * trans
         self.dir += dtheta
+        self.last_dir = self.dir
 
     def run(self):
         rospy.init_node('pose_estimator')
@@ -91,7 +96,7 @@ class PoseEstimator(object):
             rate.sleep()
 
             if self.pos is not None:
-                #self.estimate_pose()
+                self.estimate_pose()
                 tf = TransformStamped()
                 tf.header.stamp = rospy.Time.now()
                 tf.header.frame_id = "world"
