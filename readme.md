@@ -32,3 +32,10 @@ sudo pip install Adafruit-BNO055
 ```
 rosbag record /ackmn_drive /fix /nmea_sentence /tf /tf_static
 ```
+
+# gpsd_client
+
+```
+gpsd -S 4000 /dev/serial0
+rosrun gpsd_client gpsd_client _host:=localhost _port:=4000
+```

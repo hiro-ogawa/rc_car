@@ -35,17 +35,15 @@ class PoseEstimator(object):
                 return
 
             dt = (tf.header.stamp - self.last_pos.header.stamp).to_sec()
+            if dt == 0.0:
+                continue
+
             p0 = np.array([self.last_pos.transform.translation.x, self.last_pos.transform.translation.y])
             p1 = np.array([tf.transform.translation.x, tf.transform.translation.y])
             l = np.linalg.norm(p1 - p0)
             self.vx = l / dt
 
             self.pos = np.matrix([tf.transform.translation.x, tf.transform.translation.y, 1.0]).T
-            # dir is obtained from imu callback on actual RCcar
-            #if SIMULATED:
-            #    q = tf.transform.rotation
-            #    self.dir = transformations.euler_from_quaternion((q.x, q.y, q.z, q.w))[2]
-
             self.last_pos = tf
 
     def gen_rot(self, theta):
@@ -55,7 +53,6 @@ class PoseEstimator(object):
         return rot
 
     def estimate_tf(self):
-        print('last_dir', self.last_dir, 'curr_dir', self.dir)
         t = rospy.get_rostime()
         dt = (t - self.t0).to_sec()
         self.t0 = t
@@ -68,9 +65,10 @@ class PoseEstimator(object):
 
         half_rot = self.gen_rot(dtheta / 2.0)
         pose_rot = self.gen_rot(self.dir)
-
+        
         self.pos += pose_rot * half_rot * trans
         self.last_dir = self.dir
+        print('estimated pos', self.pos)
 
     def run(self):
         rospy.init_node('pose_estimator')
@@ -85,7 +83,7 @@ class PoseEstimator(object):
             rate.sleep()
 
             if self.pos is not None:
-                self.estimate_tf()
+                #self.estimate_tf()
                 tf = TransformStamped()
                 tf.header.stamp = rospy.Time.now()
                 tf.header.frame_id = "world"
