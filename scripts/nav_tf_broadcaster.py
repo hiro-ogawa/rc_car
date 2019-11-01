@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+
+import numpy as np
+
 import rospy
 from sensor_msgs.msg import NavSatFix
 from tf2_ros import TransformBroadcaster
@@ -15,6 +18,9 @@ def fix_callback(msg):
     EPSG4612 = pyproj.Proj("+init=EPSG:4612")
     EPSG2451 = pyproj.Proj("+init=EPSG:2451")
     y,x = pyproj.transform(EPSG4612, EPSG2451, msg.longitude, msg.latitude)
+
+    if np.isnan(x) or np.isnan(y):
+        return
 
     tf = TransformStamped()
     tf.header.stamp = msg.header.stamp
