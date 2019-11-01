@@ -144,64 +144,22 @@ def calc_target_index(state, cx, cy):
     front_axle_vec = [-np.cos(state.yaw + np.pi / 2),
                       - np.sin(state.yaw + np.pi / 2)]
     error_front_axle = np.dot([dx[target_idx], dy[target_idx]], front_axle_vec)
-    print("target idx", target_idx)
 
     return target_idx, error_front_axle
 
-
-def main():
-    """Plot an example of Stanley steering control on a cubic spline."""
-    #  target course
-    ax = [0.0, 100.0, 100.0, 50.0, 60.0]
-    ay = [0.0, 0.0, -30.0, -20.0, 0.0]
-
-    cx, cy, cyaw, ck, s = cubic_spline_planner.calc_spline_course(
-        ax, ay, ds=0.1)
-
-    target_speed = 30.0 / 3.6  # [m/s]
-
-    max_simulation_time = 100.0
-
-    # Initial state
-    state = State(x=-0.0, y=5.0, yaw=np.radians(20.0), v=0.0)
-
-    last_idx = len(cx) - 1
-    time = 0.0
-    x = [state.x]
-    y = [state.y]
-    yaw = [state.yaw]
-    v = [state.v]
-    t = [0.0]
-    target_idx, _ = calc_target_index(state, cx, cy)
-
-    while max_simulation_time >= time and last_idx > target_idx:
-        ai = pid_control(target_speed, state.v)
-        di, target_idx = stanley_control(state, cx, cy, cyaw, target_idx)
-        state.update(ai, di)
-
-        time += dt
-
-        x.append(state.x)
-        y.append(state.y)
-        yaw.append(state.yaw)
-        v.append(state.v)
-        t.append(time)
-
-    # Test
-    assert last_idx >= target_idx, "Cannot reach goal"
 
 poses = []
 
 def path_callback(msg):
     _poses = []
     for p in msg.poses:
-        print(p)
         q = p.pose.orientation
         yaw = transformations.euler_from_quaternion((q.x, q.y, q.z, q.w))[2]
         _poses.append((p.pose.position.x, p.pose.position.y, yaw))
 
     global poses
     poses = _poses
+    rospy.loginfo('next goal received { x: %s, y: %s, yaw: %s }', p.pose.position.x, p.pose.position.y, yaw)
 
 if __name__ == '__main__':
     rospy.init_node('stanley_controller', anonymous=True)
@@ -210,7 +168,7 @@ if __name__ == '__main__':
     tfBuffer = Buffer()
     listener = TransformListener(tfBuffer)
     br = TransformBroadcaster()
-    target_speed = 0.1  # [m/s]
+    target_speed = 1.0  # [m/s]
 
     control = False
     vx = 0.0
@@ -219,7 +177,6 @@ if __name__ == '__main__':
     while not rospy.is_shutdown():
         if not control:
             if poses:
-                print(len(poses))
                 control = True
                 vx = 0.0
                 cx, cy, cyaw = zip(*poses)
@@ -227,7 +184,6 @@ if __name__ == '__main__':
                 # Initial state
                 try:
                     trans = tfBuffer.lookup_transform("world", 'estimated_footprint', rospy.Time(0))
-                    print("pass try")
                 except (LookupException, ConnectivityException, ExtrapolationException):
                     rate.sleep()
                     continue
@@ -259,6 +215,7 @@ if __name__ == '__main__':
             v=vx)
 
         vx += pid_control(target_speed, vx) * dt
+        cx, cy, cyaw = zip(*poses)
         di, target_idx = stanley_control(state, cx, cy, cyaw, target_idx)
 
         msg_ackmn = AckermannDrive()

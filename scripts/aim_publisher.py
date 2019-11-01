@@ -14,8 +14,8 @@ from tf2_ros import (
 )
 from tf_conversions import transformations
 
-ax = [5.0, 10.0, 10.0, 5.0, 6.0]
-ay = [5.0, 0.0, -3.0, -2.0, 0.0]
+ax = [5.0, 10.0, 5.0, 0.0, -5.0, -10.0, -5.0]
+ay = [5.0, 0.0, -5.0, 0.0,  5.0,   0.0, -5.0]
 points = zip(ax, ay)
 
 def publish_point(pub_path, point, yaw):
@@ -32,6 +32,7 @@ def publish_point(pub_path, point, yaw):
     pose.pose.orientation.z = q[2]
     pose.pose.orientation.w = q[3]
     path.poses.append(pose)
+    rospy.loginfo('publish next goal { x: %s, y: %s, yaw: %s', point[0], point[1], yaw)
     pub_path.publish(path)
 
 if __name__ == '__main__':
@@ -60,12 +61,13 @@ if __name__ == '__main__':
             publish_point(pub_path, points[i], yaw)
 
         d = np.sqrt((x - points[i][0]) ** 2 + (y - points[i][1]) ** 2)
-        print("distance", d)
+        rospy.loginfo("distance to point %s: %s", i, d)
 
         if d < 3:
+            print('arrived at point ', i)
             i += 1
             if i == len(points):
-                print("one cycle")
+                print('lap done')
                 i = 0
             yaw = math.atan2(points[i][1] - y,points[i][0] - x)
             publish_point(pub_path, points[i], yaw)
