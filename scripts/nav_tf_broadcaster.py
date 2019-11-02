@@ -15,6 +15,7 @@ def fix_callback(msg):
     if msg.longitude is None:
         return
 
+    rospy.loginfo('lat: %s, lon: %s', msg.latitude, msg.longitude)
     EPSG4612 = pyproj.Proj("+init=EPSG:4612")
     EPSG2451 = pyproj.Proj("+init=EPSG:2451")
     y,x = pyproj.transform(EPSG4612, EPSG2451, msg.longitude, msg.latitude)
