@@ -31,7 +31,8 @@
 
   <!-- RcCar control -->
   <node name="ackmn_to_rc_MG996R_PCA9685" pkg="rc_car" type="ackmn_to_rc_MG996R_PCA9685.py" output="screen" />
-  <node name="stanley_controller" pkg="rc_car" type="stanley_controller.py" output="screen" />
+  <!-- <node name="stanley_controller" pkg="rc_car" type="stanley_controller.py" output="screen" /> -->
+  <node name="simple_controller" pkg="rc_car" type="simple_controller.py" output="screen" />
 
   <!-- <node name="rviz" pkg="rviz" type="rviz" args="$(find rc_car)/rviz/sim.rviz" output="screen" /> -->
 </launch>
